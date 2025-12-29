@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "531790754572",
+    "project_id": "pos313-dc017",
+    "storage_bucket": "pos313-dc017.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:531790754572:android:118672935e07de44dfcf29",
+        "android_client_info": {
+          "package_name": "com.example.miral"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkPj3W4E4dHTYjsOw_7mPxbDnl77hp7HY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:531790754572:android:8f7dffc122dc7bb8dfcf29",
+        "android_client_info": {
+          "package_name": "com.restaurant.pos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkPj3W4E4dHTYjsOw_7mPxbDnl77hp7HY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
