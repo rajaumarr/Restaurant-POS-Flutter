@@ -24,7 +24,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       );
       Navigator.pushReplacementNamed(
           context,
-          RouteNames.adminHome
+          RouteNames.adminScaffold
       );
     }catch(e){
       _showError();

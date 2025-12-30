@@ -39,21 +39,24 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
       );
     }
 
-    void _submitPin() async{
-      try{
+    void _submitPin() async {
+      try {
+        debugPrint('Submitting PIN: $enteredPin');
         final role = await _pinAuthService.verifyPin(enteredPin);
-
-        if(role == 'waiter'){
+        debugPrint('verifyPin returned: $role');
+        if (role == 'waiter') {
           Navigator.pushReplacementNamed(context, RouteNames.waiterHome);
-        }else if(role == 'counter'){
+        } else if (role == 'counter') {
           Navigator.pushReplacementNamed(context, RouteNames.counterHome);
-      }else{
+        } else {
           _showError();
-      }
-      }catch(e){
+        }
+      } catch (e) {
+        debugPrint('Pin submit error: $e');
         _showError();
       }
     }
+
 
     void _onKeyTap(String value){
       if(enteredPin.length < pinLength){

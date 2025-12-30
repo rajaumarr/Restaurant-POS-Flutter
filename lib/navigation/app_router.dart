@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:miral/views/admin/admin_home.dart';
 import 'package:miral/views/admin/admin_login_screen.dart';
+import 'package:miral/views/admin/admin_scaffold.dart';
 import 'package:miral/views/counter/couter_home.dart';
 import 'package:miral/views/splash/splash_screen.dart';
 import 'package:miral/views/auth/pin_login_screen.dart';
@@ -19,8 +19,8 @@ class AppRouter{
         return MaterialPageRoute(builder: (_) => CounterHome());
       case '/admin-login':
         return MaterialPageRoute(builder: (_) => AdminLoginScreen());
-      case '/admin-home':
-        return MaterialPageRoute(builder: (_) => AdminHome());
+      case '/admin-scaffold':
+        return MaterialPageRoute(builder: (_) => AdminScaffold());
 
       default:
         return MaterialPageRoute(

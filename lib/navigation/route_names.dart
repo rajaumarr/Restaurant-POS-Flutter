@@ -5,4 +5,5 @@ class RouteNames{
   static const waiterHome = '/waiter-home';
   static const counterHome = '/counter-home';
   static const adminHome = '/admin-home';
+  static const adminScaffold = '/admin-scaffold';
 }
