@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../../models/cart_item_model.dart';
 import '../../../models/menu_item_model.dart';
@@ -6,28 +5,29 @@ import '../../../services/order_service.dart';
 import 'menu_tab.dart';
 import 'cart_tab.dart';
 
-class OrderScreen extends StatefulWidget {
+class OrderPosScreen extends StatefulWidget {
   final int tableNumber;
   final String? orderId;
 
-  const OrderScreen({super.key, required this.tableNumber, this.orderId});
+  const OrderPosScreen({
+    super.key,
+    required this.tableNumber,
+    this.orderId,
+  });
 
   @override
-  State<OrderScreen> createState() => _OrderScreenState();
+  State<OrderPosScreen> createState() => _OrderPosScreenState();
 }
 
-class _OrderScreenState extends State<OrderScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _OrderPosScreenState extends State<OrderPosScreen> {
   final List<CartItemModel> cartItems = [];
+  final OrderService _orderService = OrderService();
   bool loading = false;
   String? editingOrderId;
-
-  final OrderService _orderService = OrderService();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     editingOrderId = widget.orderId;
     if (editingOrderId != null) {
       _loadExistingOrder();
@@ -40,14 +40,12 @@ class _OrderScreenState extends State<OrderScreen> with SingleTickerProviderStat
       final doc = await _orderService.getOrderDoc(editingOrderId!);
       if (!doc.exists) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order not found')));
-        Navigator.pop(context);
         return;
       }
       final data = doc.data() as Map<String, dynamic>;
 
       if (data['isEditable'] == false) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order is being processed and cannot be edited')));
-        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order cannot be edited')));
         return;
       }
 
@@ -65,9 +63,8 @@ class _OrderScreenState extends State<OrderScreen> with SingleTickerProviderStat
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load order: $e')));
-      Navigator.pop(context);
     } finally {
-      setState(() => loading = false);
+      if (mounted) setState(() => loading = false);
     }
   }
 
@@ -82,43 +79,30 @@ class _OrderScreenState extends State<OrderScreen> with SingleTickerProviderStat
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${item.name} added to cart'),
+        content: Text('${item.name} added'),
         duration: const Duration(milliseconds: 500),
         behavior: SnackBarBehavior.floating,
         backgroundColor: Colors.blueAccent,
+        width: 200,
       ),
     );
   }
 
-  void removeFromCart(CartItemModel cartItem) {
+  void increment(CartItemModel item) {
+    setState(() => item.quantity++);
+  }
+
+  void decrement(CartItemModel item) {
     setState(() {
-      cartItems.remove(cartItem);
+      if (item.quantity > 1) {
+        item.quantity--;
+      } else {
+        cartItems.remove(item);
+      }
     });
   }
 
-  void incrementCartItem(CartItemModel cartItem) {
-    final idx = cartItems.indexOf(cartItem);
-    if (idx >= 0) {
-      setState(() {
-        cartItems[idx].quantity++;
-      });
-    }
-  }
-
-  void decrementCartItem(CartItemModel cartItem) {
-    final idx = cartItems.indexOf(cartItem);
-    if (idx >= 0) {
-      setState(() {
-        if (cartItems[idx].quantity > 1) {
-          cartItems[idx].quantity--;
-        } else {
-          cartItems.removeAt(idx);
-        }
-      });
-    }
-  }
-
-  double get totalAmount => cartItems.fold(0.0, (s, c) => s + c.totalPrice);
+  double get totalAmount => cartItems.fold(0.0, (sum, item) => sum + item.totalPrice);
 
   List<Map<String, dynamic>> _cartItemsToFirestoreItems() {
     return cartItems.map((c) {
@@ -132,35 +116,30 @@ class _OrderScreenState extends State<OrderScreen> with SingleTickerProviderStat
     }).toList();
   }
 
-  Future<void> _placeOrSaveOrder() async {
-    if (cartItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty')));
-      return;
-    }
+  Future<void> placeOrder() async {
+    if (cartItems.isEmpty) return;
 
     setState(() => loading = true);
-
     try {
       final items = _cartItemsToFirestoreItems();
       if (editingOrderId == null) {
-        final createdId = await _orderService.createOrder(
+        await _orderService.createOrder(
           tableNumber: widget.tableNumber,
           items: items,
           totalAmount: totalAmount,
         );
-        Navigator.pop(context, createdId);
       } else {
         await _orderService.editOrder(
           orderId: editingOrderId!,
           items: items,
           totalAmount: totalAmount,
         );
-        Navigator.pop(context, editingOrderId);
       }
+      if (mounted) Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save order: $e')));
     } finally {
-      setState(() => loading = false);
+      if (mounted) setState(() => loading = false);
     }
   }
 
@@ -179,12 +158,12 @@ class _OrderScreenState extends State<OrderScreen> with SingleTickerProviderStat
         title: Column(
           children: [
             const Text(
-              'ORDER SELECTION',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1),
+              'POS TERMINAL',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 2),
             ),
             Text(
               'Table ${widget.tableNumber}',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF2D2D4D)),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF2D2D4D)),
             ),
           ],
         ),
@@ -195,44 +174,52 @@ class _OrderScreenState extends State<OrderScreen> with SingleTickerProviderStat
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.blueAccent, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5F5F7),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              indicator: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.blueAccent,
+      ),
+      body: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 8, 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFF5F5F7), width: 2),
               ),
-              labelColor: Colors.white,
-              unselectedLabelColor: const Color(0xFF5D5D7A),
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
-              tabs: const [
-                Tab(text: 'MENU'),
-                Tab(text: 'CART'),
-              ],
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: MenuTab(onAdd: addToCart),
+              ),
             ),
           ),
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          MenuTab(onAdd: addToCart),
-          CartTab(
-            cartItems: cartItems,
-            totalAmount: totalAmount,
-            onRemove: removeFromCart,
-            onIncrement: incrementCartItem,
-            onDecrement: decrementCartItem,
-            tableNumber: widget.tableNumber,
-            onPlaceOrder: _placeOrSaveOrder,
-            isEditing: editingOrderId != null,
+          Container(
+            width: 400,
+            margin: const EdgeInsets.fromLTRB(8, 0, 16, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFF5F5F7), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: CartTab(
+                cartItems: cartItems,
+                totalAmount: totalAmount,
+                onIncrement: increment,
+                onDecrement: decrement,
+                onRemove: decrement,
+                onPlaceOrder: placeOrder,
+                tableNumber: widget.tableNumber,
+                isEditing: editingOrderId != null,
+              ),
+            ),
           ),
         ],
       ),

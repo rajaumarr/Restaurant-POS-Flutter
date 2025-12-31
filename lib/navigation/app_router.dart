@@ -16,7 +16,7 @@ class AppRouter{
       case '/waiter-home':
         return MaterialPageRoute(builder: (_) => WaiterHome());
       case '/counter-home':
-        return MaterialPageRoute(builder: (_) => CounterHome());
+        return MaterialPageRoute(builder: (_) => CounterHomeScreen());
       case '/admin-login':
         return MaterialPageRoute(builder: (_) => AdminLoginScreen());
       case '/admin-scaffold':

@@ -1,4 +1,3 @@
-// lib/views/admin/menu/add_edit_item_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../../services/admin_menu_service.dart';
@@ -30,31 +29,37 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
 
   Future<void> _loadItem() async {
     setState(() => _loading = true);
-    final doc = await _service.getItemDoc(widget.itemId!);
-    if (!doc.exists) {
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Item not found')));
-      Navigator.pop(context);
-      return;
+    try {
+      final doc = await _service.getItemDoc(widget.itemId!);
+      if (!doc.exists) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Item not found')));
+        if (mounted) Navigator.pop(context);
+        return;
+      }
+      final data = doc.data() as Map<String, dynamic>;
+      _nameCtrl.text = data['name'] ?? '';
+      _priceCtrl.text = (data['price'] ?? 0).toString();
+      _descCtrl.text = (data['description'] ?? '');
+      _categoryId = data['categoryId'];
+      _isAvailable = data['isAvailable'] ?? true;
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    final data = doc.data() as Map<String, dynamic>;
-    _nameCtrl.text = data['name'] ?? '';
-    _priceCtrl.text = (data['price'] ?? 0).toString();
-    _descCtrl.text = (data['description'] ?? '');
-    _categoryId = data['categoryId'];
-    _isAvailable = data['isAvailable'] ?? true;
-    setState(() => _loading = false);
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_categoryId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Choose category')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a category')));
       return;
     }
+    
     final name = _nameCtrl.text.trim();
     final price = double.tryParse(_priceCtrl.text.trim()) ?? 0.0;
     final desc = _descCtrl.text.trim();
+    
     setState(() => _loading = true);
     try {
       if (widget.itemId == null) {
@@ -75,99 +80,147 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
           description: desc,
         );
       }
-      Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed save item: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  InputDecoration _buildInputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: Colors.blueAccent),
+      filled: true,
+      fillColor: const Color(0xFFF5F5F7),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(widget.itemId == null ? 'Add Item' : 'Edit Item'),
-        actions: [
-          if (!_loading)
-            TextButton(
-              onPressed: _save,
-              child: const Text('Save', style: TextStyle(color: Colors.white)),
-            ),
-        ],
+        title: Text(
+          widget.itemId == null ? 'ADD MENU ITEM' : 'EDIT MENU ITEM',
+          style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF2D2D4D), fontSize: 18),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-        padding: const EdgeInsets.all(12),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Name'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter name' : null,
-              ),
-              const SizedBox(height: 12),
+          ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      controller: _nameCtrl,
+                      decoration: _buildInputDecoration('Item Name', Icons.fastfood_rounded),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter item name' : null,
+                    ),
+                    const SizedBox(height: 20),
 
-              // Category dropdown (by name, saves id)
-              StreamBuilder<QuerySnapshot>(
-                stream: _service.streamCategories(),
-                builder: (context, snap) {
-                  if (!snap.hasData) return const LinearProgressIndicator();
-                  final docs = snap.data!.docs;
-                  if (docs.isEmpty) return const Text('No categories available');
-                  if (_categoryId == null) _categoryId = docs.first.id;
-                  return DropdownButtonFormField<String>(
-                    value: _categoryId,
-                    decoration: const InputDecoration(labelText: 'Category'),
-                    items: docs.map((d) {
-                      final data = d.data() as Map<String, dynamic>? ?? {};
-                      return DropdownMenuItem<String>(
-                        value: d.id,
-                        child: Text(data['name'] ?? 'Unnamed'),
-                      );
-                    }).toList(),
-                    onChanged: (v) => setState(() => _categoryId = v),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
+                    StreamBuilder<QuerySnapshot>(
+                      stream: _service.streamCategories(),
+                      builder: (context, snap) {
+                        if (!snap.hasData) return const LinearProgressIndicator(color: Colors.blueAccent);
+                        final docs = snap.data!.docs;
+                        if (docs.isEmpty) return const Text('No categories available. Please create one first.', style: TextStyle(color: Colors.red));
+                        
+                        return DropdownButtonFormField<String>(
+                          value: _categoryId,
+                          decoration: _buildInputDecoration('Select Category', Icons.category_rounded),
+                          items: docs.map((d) {
+                            final data = d.data() as Map<String, dynamic>? ?? {};
+                            return DropdownMenuItem<String>(
+                              value: d.id,
+                              child: Text(data['name']?.toString().toUpperCase() ?? 'UNNAMED'),
+                            );
+                          }).toList(),
+                          onChanged: (v) => setState(() => _categoryId = v),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
 
-              TextFormField(
-                controller: _priceCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Price'),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Enter price';
-                  if (double.tryParse(v) == null) return 'Invalid price';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _priceCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: _buildInputDecoration('Price (BHD)', Icons.payments_rounded),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Enter price';
+                        if (double.tryParse(v) == null) return 'Invalid price';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
 
-              TextFormField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Description (optional)'),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _descCtrl,
+                      decoration: _buildInputDecoration('Description (Optional)', Icons.description_rounded),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 30),
 
-              Row(
-                children: [
-                  const Text('Available'),
-                  const SizedBox(width: 8),
-                  Switch(value: _isAvailable, onChanged: (v) => setState(() => _isAvailable = v)),
-                ],
-              ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F7),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.inventory_2_rounded, color: Colors.blueAccent, size: 20),
+                              SizedBox(width: 12),
+                              Text('In Stock / Available', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2D2D4D))),
+                            ],
+                          ),
+                          Switch(
+                            value: _isAvailable,
+                            onChanged: (v) => setState(() => _isAvailable = v),
+                            activeColor: Colors.blueAccent,
+                          ),
+                        ],
+                      ),
+                    ),
 
-              const SizedBox(height: 16),
-              ElevatedButton(onPressed: _save, child: const Text('Save')),
-            ],
-          ),
-        ),
-      ),
+                    const SizedBox(height: 40),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: _save,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          widget.itemId == null ? 'CREATE ITEM' : 'SAVE CHANGES',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }

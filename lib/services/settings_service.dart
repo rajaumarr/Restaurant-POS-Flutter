@@ -1,11 +1,9 @@
-// lib/services/settings_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SettingsService {
   final CollectionReference settings = FirebaseFirestore.instance.collection('settings');
   final String configDoc = 'config';
 
-  // read the config doc snapshot
   Stream<DocumentSnapshot> streamConfig() {
     return settings.doc(configDoc).snapshots();
   }
@@ -14,7 +12,6 @@ class SettingsService {
     return settings.doc(configDoc).get();
   }
 
-  // update both pins (merge so other fields remain)
   Future<void> setPins({String? waiterPin, String? counterPin}) async {
     final payload = <String, dynamic>{'updatedAt': FieldValue.serverTimestamp()};
     if (waiterPin != null) payload['waiterPin'] = waiterPin;

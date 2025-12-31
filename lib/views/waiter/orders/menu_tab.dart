@@ -1,149 +1,147 @@
-// lib/views/waiter/order/menu_tab.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:miral/models/menu_item_model.dart';
-import 'package:flutter/foundation.dart';
+import '../../../models/menu_item_model.dart';
 
-class MenuTab extends StatefulWidget {
-  final Function(MenuItemModel) onAdd;
-
+class MenuTab extends StatelessWidget {
+  final void Function(MenuItemModel) onAdd;
   const MenuTab({super.key, required this.onAdd});
 
   @override
-  State<MenuTab> createState() => _MenuTabState();
-}
-
-class _MenuTabState extends State<MenuTab> {
-  String? _selectedCategoryId;
-
-  @override
   Widget build(BuildContext context) {
-    final categoriesRef = FirebaseFirestore.instance.collection('categories');
+    final categoriesCol = FirebaseFirestore.instance.collection('categories').orderBy('position');
 
-    return Column(
-      children: [
-        // Categories row
-        SizedBox(
-          height: 72,
-          child: StreamBuilder<QuerySnapshot>(
-            stream: categoriesRef
-                .where('isActive', isEqualTo: true)
-                .orderBy('position')
-                .snapshots(),
-            builder: (context, snap) {
-              if (snap.hasError) {
-                return Center(child: Text('Failed to load categories: ${snap.error}'));
-              }
-              if (!snap.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final docs = snap.data!.docs;
-              if (docs.isEmpty) {
-                return const Center(child: Text('No categories defined. Add categories in Admin.'));
-              }
+    return Container(
+      color: Colors.white,
+      child: StreamBuilder<QuerySnapshot>(
+        stream: categoriesCol.snapshots(),
+        builder: (context, catSnap) {
+          if (catSnap.hasError) return Center(child: Text('Failed to load categories: ${catSnap.error}'));
+          if (!catSnap.hasData) return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
+          
+          final cats = catSnap.data!.docs;
+          if (cats.isEmpty) return const Center(child: Text('No categories available'));
 
-              // Ensure selected category is set (safely after build)
-              if (_selectedCategoryId == null) {
-                final firstId = docs.first.id;
-                // schedule setting state after this build frame
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted && _selectedCategoryId == null) {
-                    setState(() {
-                      _selectedCategoryId = firstId;
-                    });
-                  }
-                });
-              }
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            itemCount: cats.length,
+            itemBuilder: (context, idx) {
+              final c = cats[idx];
+              final cData = c.data() as Map<String, dynamic>;
+              final catId = c.id;
+              final catName = (cData['name'] ?? 'Unnamed').toString();
 
-              return ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                itemBuilder: (context, index) {
-                  final d = docs[index];
-                  final data = d.data() as Map<String, dynamic>? ?? {};
-                  final name = (data['name'] ?? 'Unnamed') as String;
-                  final id = d.id;
-                  final selected = id == _selectedCategoryId;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedCategoryId = id),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      margin: const EdgeInsets.only(right: 6),
-                      decoration: BoxDecoration(
-                        color: selected ? Theme.of(context).primaryColor : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Center(
-                        child: Text(
-                          name,
-                          style: TextStyle(
-                            color: selected ? Colors.white : Colors.black87,
-                            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
+              return Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F5F7),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ExpansionTile(
+                    tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    title: Text(
+                      catName.toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        color: Color(0xFF2D2D4D),
+                        letterSpacing: 1.1,
                       ),
                     ),
-                  );
-                },
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemCount: docs.length,
+                    iconColor: Colors.blueAccent,
+                    collapsedIconColor: Colors.grey,
+                    children: [
+                      StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('items')
+                            .where('categoryId', isEqualTo: catId)
+                            .orderBy('position')
+                            .snapshots(),
+                        builder: (context, itemSnap) {
+                          if (itemSnap.hasError) return Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text('Error: ${itemSnap.error}'),
+                          );
+                          if (!itemSnap.hasData) return const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          );
+                          
+                          final items = itemSnap.data!.docs;
+                          if (items.isEmpty) return const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text('No items in this category'),
+                          );
+
+                          return Column(
+                            children: items.map((doc) {
+                              final d = doc.data() as Map<String, dynamic>;
+                              final menuItem = MenuItemModel(
+                                id: doc.id,
+                                name: (d['name'] ?? '').toString(),
+                                price: (d['price'] is num) ? (d['price'] as num).toDouble() : double.tryParse(d['price'].toString()) ?? 0.0,
+                                category: catName,
+                              );
+                              return Container(
+                                margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.03),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                  title: Text(
+                                    menuItem.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF2D2D4D),
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${menuItem.price.toStringAsFixed(3)} BHD',
+                                    style: TextStyle(
+                                      color: Colors.blueAccent.shade700,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  trailing: SizedBox(
+                                    height: 40,
+                                    child: ElevatedButton(
+                                      onPressed: () => onAdd(menuItem),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blueAccent,
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      ),
+                                      child: const Text('ADD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               );
             },
-          ),
-        ),
-
-        // Items list for selected category
-        Expanded(
-          child: _selectedCategoryId == null
-              ? const Center(child: Text('Loading categories...'))
-              : StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('items')
-                .where('categoryId', isEqualTo: _selectedCategoryId)
-                .where('isAvailable', isEqualTo: true)
-                .orderBy('position')
-                .snapshots(),
-            builder: (context, snap) {
-              if (snap.hasError) {
-                // If Firestore asks for an index, it will show in snap.error — show friendly message
-                return Center(child: Text('Failed to load items: ${snap.error}'));
-              }
-              if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-              final docs = snap.data!.docs;
-              if (docs.isEmpty) return const Center(child: Text('No items in this category'));
-
-              return ListView.separated(
-                padding: const EdgeInsets.all(12),
-                itemCount: docs.length,
-                separatorBuilder: (_, __) => const Divider(),
-                itemBuilder: (context, index) {
-                  final d = docs[index];
-                  final data = d.data() as Map<String, dynamic>? ?? {};
-                  final name = (data['name'] ?? 'Unnamed') as String;
-                  final priceNum = data['price'];
-                  final price = (priceNum is num) ? priceNum.toDouble() : double.tryParse(priceNum?.toString() ?? '0') ?? 0.0;
-
-                  final menuItem = MenuItemModel(
-                    id: d.id,
-                    name: name,
-                    price: price,
-                    category: data['categoryId'] ?? '',
-                  );
-
-                  return ListTile(
-                    title: Text(menuItem.name),
-                    subtitle: Text('${menuItem.price.toStringAsFixed(3)}'),
-                    trailing: ElevatedButton(
-                      onPressed: () => widget.onAdd(menuItem),
-                      child: const Text('Add'),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
+          );
+        },
+      ),
     );
   }
 }

@@ -13,7 +13,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     _goNext();
   }
@@ -31,14 +30,12 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return  Scaffold(
       body: Center(
-        child: Text(
-          'MIRAL RESTAURANT',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-          ),
+        child: Image.asset(
+          'assets/images/splash.png',
+          width: 200,
+          height: 200,
         ),
       ),
     );

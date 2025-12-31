@@ -1,11 +1,9 @@
-// lib/services/admin_menu_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdminMenuService {
   final CollectionReference categories = FirebaseFirestore.instance.collection('categories');
   final CollectionReference items = FirebaseFirestore.instance.collection('items');
 
-  // Categories
   Stream<QuerySnapshot> streamCategories() {
     return categories.orderBy('position').snapshots();
   }
@@ -29,14 +27,22 @@ class AdminMenuService {
     });
   }
 
-  Future<void> updateCategory(String id, String name, {bool? isActive}) async {
-    final payload = {'name': name, 'updatedAt': FieldValue.serverTimestamp()};
+  Future<void> updateCategory({
+    required String id, 
+    required String name, 
+    required int position, 
+    bool? isActive
+  }) async {
+    final payload = {
+      'name': name, 
+      'position': position,
+      'updatedAt': FieldValue.serverTimestamp()
+    };
     if (isActive != null) payload['isActive'] = isActive;
     await categories.doc(id).update(payload);
   }
 
   Future<void> deleteCategory(String id) async {
-    // Optionally: you can check for items referencing this category
     final itemsSnap = await items.where('categoryId', isEqualTo: id).limit(1).get();
     if (itemsSnap.docs.isNotEmpty) {
       throw Exception('Category is used by items; remove items first.');
@@ -44,7 +50,6 @@ class AdminMenuService {
     await categories.doc(id).delete();
   }
 
-  // Items
   Stream<QuerySnapshot> streamAllItems() {
     return items.orderBy('position').snapshots();
   }

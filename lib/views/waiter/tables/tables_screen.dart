@@ -1,4 +1,3 @@
-// lib/views/waiter/tables/tables_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'table_card.dart';
@@ -21,13 +20,12 @@ class TablesScreen extends StatelessWidget {
           final docs = snap.data!.docs;
           if (docs.isEmpty) return const Center(child: Text('No tables defined'));
 
-          // For tablet layout: grid
           return Padding(
             padding: const EdgeInsets.all(12.0),
             child: GridView.builder(
               itemCount: docs.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4, // adjust for your tablet
+                crossAxisCount: 4,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
                 childAspectRatio: 1.6,

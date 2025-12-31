@@ -1,4 +1,3 @@
-// lib/views/admin/pin/admin_pin_screen.dart
 import 'package:flutter/material.dart';
 import '../../../services/settings_service.dart';
 
@@ -23,47 +22,61 @@ class _AdminPinScreenState extends State<AdminPinScreen> {
   }
 
   Future<void> _load() async {
+    setState(() => _loading = true);
     try {
       final doc = await _service.getConfigDoc();
       final data = doc.data() as Map<String, dynamic>? ?? {};
       _waiterCtrl.text = (data['waiterPin'] ?? '').toString();
       _counterCtrl.text = (data['counterPin'] ?? '').toString();
-      setState(() {});
-    } catch (_) {}
-  }
-
-  Future<void> _saveWaiter() async {
-    final pin = _waiterCtrl.text.trim();
-    if (!_pinRg.hasMatch(pin)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Waiter PIN must be exactly 4 digits (0-9)')));
-      return;
-    }
-    setState(() => _loading = true);
-    try {
-      await _service.setPins(waiterPin: pin);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Waiter PIN saved')));
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save waiter PIN: $e')));
-    } finally {
-      setState(() => _loading = false);
+    } catch (_) {} finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _saveCounter() async {
-    final pin = _counterCtrl.text.trim();
+  Future<void> _savePin(String type, String pin) async {
     if (!_pinRg.hasMatch(pin)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Counter PIN must be exactly 4 digits (0-9)')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PIN must be exactly 4 digits'), backgroundColor: Colors.redAccent)
+      );
       return;
     }
+    
     setState(() => _loading = true);
     try {
-      await _service.setPins(counterPin: pin);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Counter PIN saved')));
+      if (type == 'waiter') {
+        await _service.setPins(waiterPin: pin);
+      } else {
+        await _service.setPins(counterPin: pin);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${type.toUpperCase()} PIN updated successfully'),
+            backgroundColor: Colors.blueAccent,
+            behavior: SnackBarBehavior.floating,
+          )
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save counter PIN: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  InputDecoration _buildInputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: Colors.blueAccent),
+      filled: true,
+      fillColor: const Color(0xFFF5F5F7),
+      counterText: "",
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
+      ),
+    );
   }
 
   @override
@@ -76,31 +89,107 @@ class _AdminPinScreenState extends State<AdminPinScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('PIN (Staff)')),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: ListView(
-          children: [
-            const Text('Waiter PIN (4 digits)'),
-            TextField(
-              controller: _waiterCtrl,
-              keyboardType: TextInputType.number,
-              maxLength: 4,
-              decoration: const InputDecoration(hintText: 'e.g. 1234'),
-            ),
-            ElevatedButton(onPressed: _loading ? null : _saveWaiter, child: const Text('Save Waiter PIN')),
-            const SizedBox(height: 24),
-            const Text('Counter PIN (4 digits)'),
-            TextField(
-              controller: _counterCtrl,
-              keyboardType: TextInputType.number,
-              maxLength: 4,
-              decoration: const InputDecoration(hintText: 'e.g. 4321'),
-            ),
-            ElevatedButton(onPressed: _loading ? null : _saveCounter, child: const Text('Save Counter PIN')),
-            if (_loading) const Padding(padding: EdgeInsets.only(top:16), child: Center(child: CircularProgressIndicator())),
-          ],
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text(
+          'STAFF SECURITY PINS',
+          style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF2D2D4D), fontSize: 18),
         ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      body: _loading && _waiterCtrl.text.isEmpty
+          ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'MANAGE ACCESS CODES',
+                    style: TextStyle(fontWeight: FontWeight.w900, color: Colors.grey, fontSize: 12, letterSpacing: 1),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  _buildPinCard(
+                    'Waiter Access',
+                    'Used by waitstaff to place orders and manage tables.',
+                    _waiterCtrl,
+                    Icons.person_pin_rounded,
+                    () => _savePin('waiter', _waiterCtrl.text.trim()),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  _buildPinCard(
+                    'Counter Access',
+                    'Used by counter staff to process payments and reports.',
+                    _counterCtrl,
+                    Icons.account_balance_wallet_rounded,
+                    () => _savePin('counter', _counterCtrl.text.trim()),
+                  ),
+                  
+                  const SizedBox(height: 40),
+                  const Center(
+                    child: Text(
+                      'Security Tip: Change PINs regularly to maintain system security.',
+                      style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildPinCard(String title, String description, TextEditingController controller, IconData icon, VoidCallback onSave) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF5F5F7), width: 1.5),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF2D2D4D), fontSize: 16)),
+          const SizedBox(height: 4),
+          Text(description, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  obscureText: true,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 8),
+                  decoration: _buildInputDecoration('Enter 4-digit PIN', icon),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _loading ? null : onSave,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

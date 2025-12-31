@@ -1,9 +1,8 @@
-// lib/views/admin/menu/add_edit_category_dialog.dart
 import 'package:flutter/material.dart';
 import '../../../services/admin_menu_service.dart';
 
 class AddEditCategoryDialog extends StatefulWidget {
-  final String? categoryId; // optional if you later add edit support
+  final String? categoryId;
   const AddEditCategoryDialog({super.key, this.categoryId});
 
   @override
@@ -24,7 +23,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
     setState(() => _loading = true);
     try {
       await _service.addCategory(name);
-      Navigator.pop(context); // close dialog immediately on success
+      Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
     } finally {
